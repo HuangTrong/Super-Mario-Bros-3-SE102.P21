@@ -1,5 +1,5 @@
 #include "Sprite.h"
-
+#include "Configs.h"
 #include "Game.h"
 
 CSprite::CSprite(int id, int left, int top, int right, int bottom, LPTEXTURE tex)
@@ -32,7 +32,7 @@ CSprite::CSprite(int id, int left, int top, int right, int bottom, LPTEXTURE tex
 	D3DXMatrixScaling(&this->matScaling, (FLOAT)spriteWidth, (FLOAT)spriteHeight, 1.0f);
 }
 
-void CSprite::Draw(float x, float y)
+void CSprite::Draw(float x, float y, BOOLEAN flipX)
 {
 	CGame* g = CGame::GetInstance();
 	float cx, cy;
@@ -46,9 +46,17 @@ void CSprite::Draw(float x, float y)
 	x = (FLOAT)floor(x);
 	y = (FLOAT)floor(y);
 
-	D3DXMatrixTranslation(&matTranslation, x - cx, g->GetBackBufferHeight() - y + cy, 0.1f);
+	D3DXMATRIX matFlip;
 
-	this->sprite.matWorld = (this->matScaling * matTranslation);
+	if (flipX)
+		D3DXMatrixRotationZ(&matFlip, D3DXToRadian(180.0f));
+	else
+		D3DXMatrixRotationZ(&matFlip, .0f);
+
+
+	D3DXMatrixTranslation(&matTranslation, x + WD_WIDTH_BUFFER - cx, g->GetBackBufferHeight() - y + cy - WD_HEIGHT_BUFFER, 0.1f);
+
+	this->sprite.matWorld = (this->matScaling * matFlip * matTranslation);
 
 	g->GetSpriteHandler()->DrawSpritesImmediate(&sprite, 1, 0, 0);
 }

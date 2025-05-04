@@ -19,16 +19,13 @@ CTextures* CTextures::GetInstance()
 
 void CTextures::Add(int id, LPCWSTR filePath)
 {
+	DebugOut(L"[INFO] Add texture from file : %s\n", filePath);
 	textures[id] = CGame::GetInstance()->LoadTexture(filePath);
 }
 
 LPTEXTURE CTextures::Get(unsigned int i)
 {
-	LPTEXTURE t = textures[i];
-	if (t == NULL)
-		DebugOut(L"[ERROR] Texture Id %d not found !\n", i);
-	
-	return t;
+	return textures[i];
 }
 
 /*

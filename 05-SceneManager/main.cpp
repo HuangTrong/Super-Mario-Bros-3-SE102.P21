@@ -44,13 +44,13 @@ HOW TO INSTALL Microsoft.DXSDK.D3DX
 #include "AssetIDs.h"
 
 #define WINDOW_CLASS_NAME L"SampleWindow"
-#define MAIN_WINDOW_TITLE L"04 - Collision"
+#define MAIN_WINDOW_TITLE L"Super Mario Bros 3 Stage 1 - 1"
 #define WINDOW_ICON_PATH L"mario.ico"
 
 #define BACKGROUND_COLOR D3DXCOLOR(200.0f/255, 200.0f/255, 255.0f/255, 0.0f)
 
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 240
+#define SCREEN_WIDTH (256 + 24)
+#define SCREEN_HEIGHT (240 + 24)
 
 LRESULT CALLBACK WinProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -186,25 +186,29 @@ int Run()
 	return 1;
 }
 
+
 int WINAPI WinMain(
 	_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
 	_In_ LPSTR lpCmdLine,
 	_In_ int nCmdShow
 ) {
-	HWND hWnd = CreateGameWindow(hInstance, nCmdShow, SCREEN_WIDTH, SCREEN_HEIGHT);
+	int titleBarHeight = GetSystemMetrics(SM_CYCAPTION);
+	HWND hWnd = CreateGameWindow(hInstance, nCmdShow, SCREEN_WIDTH, SCREEN_HEIGHT + titleBarHeight);
 
 	SetDebugWindow(hWnd);
 
 	LPGAME game = CGame::GetInstance();
 	game->Init(hWnd, hInstance);
+	game->InitData();
 	game->InitKeyboard();
 
 
 	//IMPORTANT: this is the only place where a hardcoded file name is allowed ! 
-	game->Load(L"mario-sample.txt");  
+	game->Load(L"mario-sample.txt");
 
-	SetWindowPos(hWnd, 0, 0, 0, SCREEN_WIDTH*2, SCREEN_HEIGHT*2, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+	SetWindowPos(hWnd, 0, 0, 0, SCREEN_WIDTH * 2, (SCREEN_HEIGHT + titleBarHeight) * 2, SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+
 
 	Run();
 

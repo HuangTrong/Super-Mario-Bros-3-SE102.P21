@@ -14,39 +14,50 @@ using namespace std;
 #define ID_TEX_BBOX -100		// special texture to draw object bounding box
 #define BBOX_ALPHA 0.25f		// Bounding box transparency
 
+
 class CGameObject
 {
 protected:
 
-	float x; 
+	float x;
 	float y;
+
+	float alpha_x;
+	float alpha_y;
 
 	float vx;
 	float vy;
 
-	int nx;	 
+	int nx;
 
 	int state;
 
-	bool isDeleted; 
+	bool isDeleted;
 
-public: 
+	bool isActived;
+
+public:
 	void SetPosition(float x, float y) { this->x = x, this->y = y; }
 	void SetSpeed(float vx, float vy) { this->vx = vx, this->vy = vy; }
-	void GetPosition(float &x, float &y) { x = this->x; y = this->y; }
-	void GetSpeed(float &vx, float &vy) { vx = this->vx; vy = this->vy; }
+	void GetPosition(float& x, float& y) { x = this->x; y = this->y; }
+	void GetSpeed(float& vx, float& vy) { vx = this->vx; vy = this->vy; }
 
 	int GetState() { return this->state; }
-	virtual void Delete() { isDeleted = true;  }
+	virtual void Delete() { isDeleted = true; }
 	bool IsDeleted() { return isDeleted; }
 
 	void RenderBoundingBox();
 
 	CGameObject();
-	CGameObject(float x, float y) :CGameObject() { this->x = x; this->y = y; }
+	CGameObject(float x, float y) :CGameObject() {
+		this->x = x;
+		this->y = y;
+		this->alpha_x = x;
+		this->alpha_y = y;
+	}
 
 
-	virtual void GetBoundingBox(float &left, float &top, float &right, float &bottom) = 0;
+	virtual void GetBoundingBox(float& left, float& top, float& right, float& bottom) = 0;
 	virtual void Update(DWORD dt, vector<LPGAMEOBJECT>* coObjects = NULL) {};
 	virtual void Render() = 0;
 	virtual void SetState(int state) { this->state = state; }
@@ -61,14 +72,16 @@ public:
 
 	// When collision with an object has been detected (triggered by CCollision::Process)
 	virtual void OnCollisionWith(LPCOLLISIONEVENT e) {};
-	
+
 	// Is this object blocking other object? If YES, collision framework will automatically push the other object
 	virtual int IsBlocking() { return 1; }
 
-	// Does this object collide with other object at certain direction ( like ColorBox )
+	// Is this object collide with other object at certain direction ( like ColorBox )
 	virtual int IsDirectionColliable(float nx, float ny) { return 1; }
+
+
 
 	~CGameObject();
 
-	static bool IsDeleted(const LPGAMEOBJECT &o) { return o->isDeleted; }
+	static bool IsDeleted(const LPGAMEOBJECT& o) { return o->isDeleted; }
 };

@@ -155,6 +155,9 @@ void CGame::Init(HWND hWnd, HINSTANCE hInstance)
 	return;
 }
 
+void CGame::InitData() {
+	data = new CData();
+}
 void CGame::SetPointSamplerState()
 {
 	pD3DDevice->VSSetSamplers(0, 1, &pPointSamplerState);
@@ -442,9 +445,15 @@ void CGame::_ParseSection_SETTINGS(string line)
 {
 	vector<string> tokens = split(line);
 
+	current_scene = SCENE_TYPE_UNKNOWN;
+
 	if (tokens.size() < 2) return;
 	if (tokens[0] == "start")
 		next_scene = atoi(tokens[1].c_str());
+	if (tokens[0] == "width")
+		screen_width = atoi(tokens[1].c_str());
+	if (tokens[0] == "height")
+		screen_height = atoi(tokens[1].c_str());
 	else
 		DebugOut(L"[ERROR] Unknown game setting: %s\n", ToWSTR(tokens[0]).c_str());
 }
@@ -453,11 +462,14 @@ void CGame::_ParseSection_SCENES(string line)
 {
 	vector<string> tokens = split(line);
 
-	if (tokens.size() < 2) return;
+	if (tokens.size() < 3) return;
 	int id = atoi(tokens[0].c_str());
-	LPCWSTR path = ToLPCWSTR(tokens[1]);   // file: ASCII format (single-byte char) => Wide Char
+	int type = atoi(tokens[1].c_str());
 
-	LPSCENE scene = new CPlayScene(id, path);
+	LPCWSTR path = ToLPCWSTR(tokens[2]);   // file: ASCII format (single-byte char) => Wide Char
+	LPSCENE scene = nullptr;
+	if (type == SCENE_TYPE_PLAY)
+		scene = new CPlayScene(id, path);
 	scenes[id] = scene;
 }
 
@@ -510,11 +522,11 @@ void CGame::Load(LPCWSTR gameFile)
 
 void CGame::SwitchScene()
 {
-	if (next_scene < 0 || next_scene == current_scene) return; 
+	if (next_scene < 0 || next_scene == current_scene) return;
 
 	DebugOut(L"[INFO] Switching to scene %d\n", next_scene);
 
-	if (scenes[current_scene]!=NULL)
+	if (scenes[current_scene] != NULL)
 		scenes[current_scene]->Unload();
 
 	CSprites::GetInstance()->Clear();

@@ -7,15 +7,17 @@
 #include "Game.h"
 #include "GameObject.h"
 #include "Sprites.h"
+#include "PlayScene.h"
 
 CGameObject::CGameObject()
 {
 	x = y = 0;
 	vx = vy = 0;
-	nx = 1;	
+	nx = 1;
 	state = -1;
 	isDeleted = false;
 }
+
 
 void CGameObject::RenderBoundingBox()
 {

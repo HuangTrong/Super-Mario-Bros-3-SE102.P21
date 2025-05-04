@@ -1,0 +1,9 @@
+#pragma once
+
+#define CONTAINED_STATE_DEACTIVE 0
+#define CONTAINED_STATE_ACTIVE 1
+
+#define TRIGGER_IGNORE -1
+#define TRIGGER_TRIGGER 1
+#define TRIGGER_READY 0
+

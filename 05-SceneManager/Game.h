@@ -13,11 +13,11 @@ using namespace std;
 #include "Texture.h"
 #include "KeyEventHandler.h"
 #include "Scene.h"
+#include "DataBase.h"
 
 #define MAX_FRAME_RATE 100
 #define KEYBOARD_BUFFER_SIZE 1024
 #define KEYBOARD_STATE_SIZE 256
-
 
 
 /*
@@ -49,6 +49,9 @@ class CGame
 	float cam_x = 0.0f;
 	float cam_y = 0.0f;
 
+	float screen_width;
+	float screen_height;
+
 	HINSTANCE hInstance;
 
 	ID3D10SamplerState* pPointSamplerState;
@@ -57,12 +60,16 @@ class CGame
 	int current_scene = -1;
 	int next_scene = -1;
 
+	LPDATA data;
+
 	void _ParseSection_SETTINGS(string line);
 	void _ParseSection_SCENES(string line);
 
 public:
 	// Init DirectX, Sprite Handler
 	void Init(HWND hWnd, HINSTANCE hInstance);
+
+	void InitData();
 
 	//
 	// Draw a portion or ALL the texture at position (x,y) on the screen. (x,y) is at the CENTER of the image
@@ -106,7 +113,16 @@ public:
 
 	void SetCamPos(float x, float y) { cam_x = x; cam_y = y; }
 	void GetCamPos(float& x, float& y) { x = cam_x; y = cam_y; }
+	BOOLEAN IsCamEnter(float x, float y) {
+		return ((cam_x + screen_width >= x) && (cam_x <= x))
+			&& ((cam_y <= y) && (cam_y + screen_height >= y));
+	}
+	BOOLEAN IsRightSideOfCam(float x) { return (cam_x + screen_width < x); }
+	BOOLEAN IsLeftSideOfCam(float x) { return (cam_x > x); }
 
+	void GetScreenSize(float& w, float& h) { w = screen_width; h = screen_height; }
+
+	LPDATA GetData() { return data; }
 	LPSCENE GetCurrentScene() { return scenes[current_scene]; }
 	void Load(LPCWSTR gameFile);
 	void SwitchScene();
@@ -118,4 +134,5 @@ public:
 	~CGame();
 };
 typedef CGame* LPGAME;
+
 

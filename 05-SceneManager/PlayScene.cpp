@@ -1,6 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include "AssetIDs.h"
+#include "Configs.h"
+#include "debug.h"
 
 #include "PlayScene.h"
 #include "Utils.h"
@@ -9,8 +11,27 @@
 #include "Portal.h"
 #include "Coin.h"
 #include "Platform.h"
+#include "Ground.h"
+#include "Block.h"
+#include "BackgroundElement.h"
+#include "Mario.h"
+#include "SuperLeaf.h"
+#include "SuperMushroom.h"
+#include "Pipe.h"
+#include "Wood.h"
+#include "VenusPiranha.h"
+#include "Koopa.h"
+#include "ParaGoomba.h"
+#include "ParaKoopa.h"
+#include "Brick.h"
+#include "Button.h"
+#include "Card.h"
+#include "Mushroom.h"
 
 #include "SampleKeyEventHandler.h"
+
+#define BG_ELEMENT_WIDTH 16
+#define BG_ELEMENT_HEIGHT 16
 
 using namespace std;
 
@@ -19,12 +40,19 @@ CPlayScene::CPlayScene(int id, LPCWSTR filePath):
 {
 	player = NULL;
 	key_handler = new CSampleKeyHandler(this);
+	isCamYPosAdjust = FALSE;
+	lose_start = 0;
+	win_start = 0;
+	second_count_start = 0;
 }
 
 
 #define SCENE_SECTION_UNKNOWN -1
 #define SCENE_SECTION_ASSETS	1
 #define SCENE_SECTION_OBJECTS	2
+#define SCENE_SECTION_BACKGROUND	3
+#define SCENE_SECTION_BOUNDARIES	4
+#define SCENE_SECTION_HIDDENMAPS	5
 
 #define ASSETS_SECTION_UNKNOWN -1
 #define ASSETS_SECTION_SPRITES 1
@@ -62,9 +90,58 @@ void CPlayScene::_ParseSection_ASSETS(string line)
 	if (tokens.size() < 1) return;
 
 	wstring path = ToWSTR(tokens[0]);
-	
+
 	LoadAssets(path.c_str());
 }
+
+void CPlayScene::_ParseSection_BACKGROUND(string line)
+{
+	vector<string> tokens = split(line);
+
+	if (tokens.size() < 5) return; // skip invalid lines
+
+	int x = atoi(tokens[0].c_str());
+	int y = atoi(tokens[1].c_str());
+	int row = atoi(tokens[2].c_str());
+	int col = atoi(tokens[3].c_str());
+	int spriteID = atoi(tokens[4].c_str());
+
+	LPBGELEMENT element = new CBackgroundElement(x, y, row, col, spriteID);
+
+	this->background.push_back(element);
+}
+
+void CPlayScene::_ParseSection_BOUNDARIES(string line)
+{
+	vector<string> tokens = split(line);
+
+	if (tokens.size() < 4) return; // skip invalid lines
+
+	mainBoundary.left = atoi(tokens[0].c_str());
+	mainBoundary.top = atoi(tokens[1].c_str());
+	mainBoundary.right = atoi(tokens[2].c_str());
+	mainBoundary.bottom = atoi(tokens[3].c_str());
+
+	currentBoundary = mainBoundary;
+}
+
+void CPlayScene::_ParseSection_HIDDENMAPS(string line)
+{
+	vector<string> tokens = split(line);
+
+	if (tokens.size() < 5) return; // skip invalid lines
+
+	Boundary hidden;
+	hidden.left = atoi(tokens[1].c_str());
+	hidden.top = atoi(tokens[2].c_str());
+	hidden.right = atoi(tokens[3].c_str());
+	hidden.bottom = atoi(tokens[4].c_str());
+
+	hiddenMapBoundary.push_back(hidden);
+}
+
+
+
 
 void CPlayScene::_ParseSection_ANIMATIONS(string line)
 {
@@ -116,39 +193,176 @@ void CPlayScene::_ParseSection_OBJECTS(string line)
 
 		DebugOut(L"[INFO] Player object has been created!\n");
 		break;
-	case OBJECT_TYPE_GOOMBA: obj = new CGoomba(x,y); break;
-	case OBJECT_TYPE_BRICK: obj = new CBrick(x,y); break;
-	case OBJECT_TYPE_COIN: obj = new CCoin(x, y); break;
+	case OBJECT_TYPE_GOOMBA: obj = new CGoomba(x, y); break;
+	case OBJECT_TYPE_BLOCK:
+	{
+		gridToreal(x, y);
+		int type = atoi(tokens[3].c_str());
+		CGameObject* tmp = NULL;
+		switch (type) {
+		case CONTAIN_COIN:
+			tmp = new CBouncingCoin(x, y - GRID_SIZE);
+			break;
+		case CONTAIN_SUPER_LEAF:
+		{
+			CSuperMushroom* tmp2 = new CSuperMushroom(x, y);
+			objects.push_back(tmp2);
+			tmp = new CSuperLeaf(x, y - GRID_SIZE, tmp2);
+			tmp2 = NULL;
+			delete tmp2;
+			break;
+		}
+		case CONTAIN_1UP_MUSHROOM:
+		{
+			tmp = new CMushroom(x, y);
+			break;
+		}
+		}
+
+		objects.push_back(tmp);
+		obj = new CBlock(x, y, type, tmp);
+		tmp = NULL;
+		delete tmp;
+		break;
+	}
+	case OBJECT_TYPE_COIN: {
+		gridToreal(x, y);
+		obj = new CCoin(x, y);
+		break;
+	}
 
 	case OBJECT_TYPE_PLATFORM:
 	{
+		gridToreal(x, y);
 
-		float cell_width = (float)atof(tokens[3].c_str());
-		float cell_height = (float)atof(tokens[4].c_str());
-		int length = atoi(tokens[5].c_str());
-		int sprite_begin = atoi(tokens[6].c_str());
-		int sprite_middle = atoi(tokens[7].c_str());
-		int sprite_end = atoi(tokens[8].c_str());
+		int length = atoi(tokens[3].c_str());
+		int sprite_begin = atoi(tokens[4].c_str());
+		int sprite_middle = atoi(tokens[5].c_str());
+		int sprite_end = atoi(tokens[6].c_str());
 
 		obj = new CPlatform(
 			x, y,
-			cell_width, cell_height, length,
+			length,
 			sprite_begin, sprite_middle, sprite_end
 		);
 
 		break;
 	}
 
-	case OBJECT_TYPE_PORTAL:
+	case OBJECT_TYPE_GROUND:
 	{
-		float r = (float)atof(tokens[3].c_str());
-		float b = (float)atof(tokens[4].c_str());
-		int scene_id = atoi(tokens[5].c_str());
-		obj = new CPortal(x, y, r, b, scene_id);
+		gridToreal(x, y);
+		int length = atoi(tokens[3].c_str());
+		int sprite_begin = atoi(tokens[4].c_str());
+		int sprite_middle = atoi(tokens[5].c_str());
+		int sprite_end = atoi(tokens[6].c_str());
+
+		obj = new CGround(
+			x, y,
+			length,
+			sprite_begin, sprite_middle, sprite_end
+		);
+
+		break;
 	}
-	break;
+	case OBJECT_TYPE_PIPE:
+	{
+		gridToreal(x, y);
+		int dir = atoi(tokens[3].c_str());
+		int length = atoi(tokens[4].c_str());
+		int map = atoi(tokens[5].c_str());
+		int gateType = atoi(tokens[6].c_str());
+
+		if (gateType != GATE_TYPE_NONE)
+		{
+			int index = atoi(tokens[7].c_str());
+			obj = new CPipe(x, y, dir, length, map, gateType, index);
+
+			//add pipe to array - helpful for process pipe's logic
+			if (pipes.size() >= (index + 1))
+			{
+				if (gateType == GATE_TYPE_ENTRANCE)
+					pipes[index].entrance = dynamic_cast<CPipe*>(obj);
+				else
+					pipes[index].exit = dynamic_cast<CPipe*>(obj);
+			}
+			else
+			{
+				PipePair newPipePair;
+				if (gateType == GATE_TYPE_ENTRANCE)
+					newPipePair.entrance = dynamic_cast<CPipe*>(obj);
+				else
+					newPipePair.exit = dynamic_cast<CPipe*>(obj);
+
+				pipes.push_back(newPipePair);
+			}
+		}
+		else
+			obj = new CPipe(x, y, dir, length, map, gateType);
+				
+		break;
+	}
+
+	case OBJECT_TYPE_WOOD:
+	{
+		gridToreal(x, y);
+		obj = new CWood(x, y);
+		break;
+	}
+	case OBJECT_TYPE_BRICK:
+	{
+		gridToreal(x, y);
+		int type = atoi(tokens[3].c_str());
 
 
+		if (type == BRICK_TYPE_BUTTON)
+		{
+			CButton* pbutton = new CButton(x, y - GRID_SIZE);
+			objects.push_back(pbutton);
+			obj = new CBrick(x, y, pbutton);
+
+			pbutton = NULL;
+			delete pbutton;
+		}
+		else
+			obj = new CBrick(x, y);
+		break;
+	}
+	case OBJECT_TYPE_VENUS:
+	{
+		gridToreal(x, y);
+
+		int height = atoi(tokens[3].c_str());
+		x += 8;
+		y += (height > 1) ? (VENUS_BBOX_HEIGHT_TALL - GRID_SIZE) / 2 : (VENUS_BBOX_HEIGHT_SHORT - GRID_SIZE) / 2;
+
+		int type = atoi(tokens[4].c_str());
+
+		obj = new CVenusPiranha(x, y, height, type);
+		break;
+	}
+	case OBJECT_TYPE_KOOPA:
+	{
+		BOOLEAN isBlock = (atoi(tokens[3].c_str()) == 0) ? FALSE : TRUE;
+		obj = new CKoopa(x, y, isBlock);
+
+		break;
+	}
+	case OBJECT_TYPE_PARA_GOOMBA:
+		obj = new CParaGoomba(x, y);
+		break;
+	case OBJECT_TYPE_PARA_KOOPA:
+	{
+		BOOLEAN isBlock = (atoi(tokens[3].c_str()) == 0) ? FALSE : TRUE;
+		obj = new CParaKoopa(x, y, isBlock);
+
+		break;
+	}
+	case OBJECT_TYPE_ROULETTE_CARD:
+		gridToreal(x, y);
+		obj = new CCard(x, y);
+		this->card = obj;
+		break;
 	default:
 		DebugOut(L"[ERROR] Invalid object type: %d\n", object_type);
 		return;
@@ -156,9 +370,10 @@ void CPlayScene::_ParseSection_OBJECTS(string line)
 
 	// General object setup
 	obj->SetPosition(x, y);
-
-
 	objects.push_back(obj);
+
+	obj = NULL;
+	delete obj;
 }
 
 void CPlayScene::LoadAssets(LPCWSTR assetFile)
@@ -214,21 +429,29 @@ void CPlayScene::Load()
 		if (line[0] == '#') continue;	// skip comment lines	
 		if (line == "[ASSETS]") { section = SCENE_SECTION_ASSETS; continue; };
 		if (line == "[OBJECTS]") { section = SCENE_SECTION_OBJECTS; continue; };
-		if (line[0] == '[') { section = SCENE_SECTION_UNKNOWN; continue; }	
+		if (line == "[BACKGROUND]") { section = SCENE_SECTION_BACKGROUND; continue; };
+		if (line == "[BOUNDARIES]") { section = SCENE_SECTION_BOUNDARIES; continue; };
+		if (line == "[HIDDENMAPS]") { section = SCENE_SECTION_HIDDENMAPS; continue; };
+		if (line[0] == '[') { section = SCENE_SECTION_UNKNOWN; continue; }
 
 		//
 		// data section
 		//
 		switch (section)
 		{ 
-			case SCENE_SECTION_ASSETS: _ParseSection_ASSETS(line); break;
-			case SCENE_SECTION_OBJECTS: _ParseSection_OBJECTS(line); break;
+		case SCENE_SECTION_ASSETS: _ParseSection_ASSETS(line); break;
+		case SCENE_SECTION_OBJECTS: _ParseSection_OBJECTS(line); break;
+		case SCENE_SECTION_BACKGROUND: _ParseSection_BACKGROUND(line); break;
+		case SCENE_SECTION_BOUNDARIES: _ParseSection_BOUNDARIES(line); break;
+		case SCENE_SECTION_HIDDENMAPS: _ParseSection_HIDDENMAPS(line); break;
 		}
 	}
 
 	f.close();
 
 	DebugOut(L"[INFO] Done loading scene  %s\n", sceneFilePath);
+
+	SetState(PLAY_STATE_START);
 }
 
 void CPlayScene::Update(DWORD dt)
@@ -236,10 +459,71 @@ void CPlayScene::Update(DWORD dt)
 	// We know that Mario is the first object in the list hence we won't add him into the colliable object list
 	// TO-DO: This is a "dirty" way, need a more organized way 
 
+// always update effect
+	for (int i = 0; i < effects.size(); i++)
+		effects[i]->Update(dt);
+	// create coObjects vector
 	vector<LPGAMEOBJECT> coObjects;
-	for (size_t i = 1; i < objects.size(); i++)
+	for (size_t i = 0; i < objects.size(); i++)
+		if (objects[i] != player)
+		{
+			coObjects.push_back(objects[i]);
+		}
+	// if lose the game
+	if (state == PLAY_STATE_LOSE)
 	{
-		coObjects.push_back(objects[i]);
+		player->Update(dt, &coObjects); // update for die animation
+
+		if (GetTickCount64() - lose_start > DELAY_TIME_LOSE)
+		{
+			CGame::GetInstance()->InitiateSwitchScene(2);
+			CGame::GetInstance()->SwitchScene();
+		}
+
+		return;
+	}
+	// if win the game
+	if (state == PLAY_STATE_WIN)
+	{
+		player->Update(dt, &coObjects);
+		card->Update(dt, &coObjects);
+		if (GetTickCount64() - win_start > DELAY_TIME_WIN)
+		{
+			CGame::GetInstance()->InitiateSwitchScene(2);
+			CGame::GetInstance()->SwitchScene();
+		}
+		return;
+	}
+	// skip the rest if timeout 
+	if (state == PLAY_STATE_TIMEOUT) return;
+	// if scene was paused
+	if (state == PLAY_STATE_PAUSE)
+	{
+		PurgeDeletedObjects(); // purge deleted objs before scene was paused
+		player->Update(dt, &coObjects); // update just for timer
+		second_count_start += dt; // update second_count to keep the timer working correctly
+		return;
+	}
+	// update timer
+	if (GetTickCount64() - second_count_start > 1000) // 1s has gone
+	{
+		CGame::GetInstance()->GetData()->AddTimer(-1);
+		// 
+		if (CGame::GetInstance()->GetData()->GetTimer() == 0)
+		{
+			SetState(PLAY_STATE_TIMEOUT);
+			return;
+		}
+		second_count_start = GetTickCount64();
+	}
+
+
+	// update objs
+	if (player->GetState() == MARIO_STATE_DIE)
+	{
+		player->Update(dt, &coObjects);
+		SetState(PLAY_STATE_LOSE);
+		return;
 	}
 
 	for (size_t i = 0; i < objects.size(); i++)
@@ -248,32 +532,99 @@ void CPlayScene::Update(DWORD dt)
 	}
 
 	// skip the rest if scene was already unloaded (Mario::Update might trigger PlayScene::Unload)
-	if (player == NULL) return; 
+	if (player == NULL) return;
 
-	// Update camera to follow mario
+	// block mario with boundary
 	float cx, cy;
 	player->GetPosition(cx, cy);
 
-	CGame *game = CGame::GetInstance();
-	cx -= game->GetBackBufferWidth() / 2;
-	cy -= game->GetBackBufferHeight() / 2;
+	if (cx <= currentBoundary.left * GRID_SIZE) {
+		player->SetPosition(currentBoundary.left * GRID_SIZE, cy);
+		player->SetState(MARIO_STATE_IDLE);
+	}
+	if (cx >= currentBoundary.right * GRID_SIZE) {
+		player->SetPosition(currentBoundary.right * GRID_SIZE, cy);
+		player->SetState(MARIO_STATE_IDLE);
+	}
 
-	if (cx < 0) cx = 0;
 
-	CGame::GetInstance()->SetCamPos(cx, 0.0f /*cy*/);
+	AdjustCamPos();
+	// HUD:?
 
 	PurgeDeletedObjects();
+
+	CMario* mario = dynamic_cast<CMario*>(player);
+	if (mario->IsPipe())
+	{
+		if (mario->GetMap() > MAP_MAIN)
+			currentBoundary = hiddenMapBoundary[mario->GetMap()];
+		else
+			currentBoundary = mainBoundary;
+	}
+}
+
+void CPlayScene::AdjustCamPos()
+{
+
+	CMario* mario = dynamic_cast<CMario*>(player);
+
+	if (mario->GetState() == MARIO_STATE_ENTER_PIPE)
+		return;
+
+	float cx, cy;
+	mario->GetPosition(cx, cy);
+
+	CGame* game = CGame::GetInstance();
+	cx -= game->GetBackBufferWidth() / 2;
+	cy -= game->GetBackBufferHeight() / 2;
+	float s_width, s_height;
+	game->GetScreenSize(s_width, s_height);
+
+	if (cx < currentBoundary.left * GRID_SIZE) cx = currentBoundary.left * GRID_SIZE;
+	if (cx > currentBoundary.right * GRID_SIZE + GRID_SIZE - s_width)
+		cx = currentBoundary.right * GRID_SIZE + GRID_SIZE - s_width;
+
+	if (cy < currentBoundary.top * GRID_SIZE)
+		cy = currentBoundary.top * GRID_SIZE;
+
+	if (!mario->IsFlying())
+	{
+		if (!isCamYPosAdjust)
+		{
+			if (cy > currentBoundary.bottom * GRID_SIZE - s_height - s_height / 2 - GRID_SIZE * 2)
+				cy = currentBoundary.bottom * GRID_SIZE - s_height;
+		}
+		else
+		{
+			if (cy > currentBoundary.bottom * GRID_SIZE - s_height)
+			{
+				cy = currentBoundary.bottom * GRID_SIZE - s_height;
+				isCamYPosAdjust = FALSE;
+			}
+		}
+	}
+	else
+	{
+		if (cy > currentBoundary.bottom * GRID_SIZE - s_height)
+			cy = currentBoundary.bottom * GRID_SIZE - s_height;
+		else {
+			isCamYPosAdjust = TRUE;
+		}
+	}
+	CGame::GetInstance()->SetCamPos(cx, cy);
 }
 
 void CPlayScene::Render()
 {
+	for (int i = 0; i < background.size(); i++)
+		background[i]->Render();
 	for (int i = 0; i < objects.size(); i++)
 		objects[i]->Render();
+	for (int i = 0; i < effects.size(); i++)
+		effects[i]->Render();
+
 }
 
-/*
-*	Clear all objects from this scene
-*/
 void CPlayScene::Clear()
 {
 	vector<LPGAMEOBJECT>::iterator it;
@@ -284,6 +635,55 @@ void CPlayScene::Clear()
 	objects.clear();
 }
 
+void CPlayScene::SetState(int state)
+{
+	this->state = state;
+	switch (state)
+	{
+	case PLAY_STATE_START:
+		CGame::GetInstance()->GetData()->SetTimer(TIMER_PLAYSCENE);
+		second_count_start = GetTickCount64();
+		break;
+	case PLAY_STATE_PLAYING:
+		break;
+	case PLAY_STATE_PAUSE:
+		break;
+	case PLAY_STATE_LOSE:
+		lose_start = GetTickCount64();
+		CGame::GetInstance()->GetData()->AddLife(-1);
+		break;
+	case PLAY_STATE_WIN:
+	{
+		win_start = GetTickCount64();
+		player->SetState(MARIO_STATE_WALKING_RIGHT);
+
+		CData* data = CGame::GetInstance()->GetData();
+		CCard* r_card = (CCard*)card;
+
+		// Declare and initialize 'mario' inside a block to avoid skipping initialization
+		CMario* mario = (CMario*)player;
+		data->AddCard(r_card->GetCard() + 1);
+		data->SetPlayerLevel(mario->GetLevel());
+		data->PassCurrentMap();
+		break;
+	}
+	case PLAY_STATE_TIMEOUT:
+		SetState(PLAY_STATE_LOSE);
+		return;
+		break;
+	default:
+		break;
+	}
+}
+
+
+void CPlayScene::Pause() {
+	SetState(PLAY_STATE_PAUSE);
+}
+void CPlayScene::UnPause() {
+	SetState(PLAY_STATE_PLAYING);
+}
+
 /*
 	Unload scene
 
@@ -292,11 +692,24 @@ void CPlayScene::Clear()
 */
 void CPlayScene::Unload()
 {
+	//clear objects
 	for (int i = 0; i < objects.size(); i++)
 		delete objects[i];
 
 	objects.clear();
+
+	//clear background
+	for (int i = 0; i < background.size(); i++)
+		delete	background[i];
+	background.clear();
+
 	player = NULL;
+
+	//clear assets
+	CAnimations::GetInstance()->Clear();
+	CSprites::GetInstance()->Clear();
+
+
 
 	DebugOut(L"[INFO] Scene %d unloaded! \n", id);
 }
@@ -321,4 +734,14 @@ void CPlayScene::PurgeDeletedObjects()
 	objects.erase(
 		std::remove_if(objects.begin(), objects.end(), CPlayScene::IsGameObjectDeleted),
 		objects.end());
+}
+
+
+void CPlayScene::SpawnObject(LPGAMEOBJECT obj)
+{
+	objects.push_back(obj);
+}
+void CPlayScene::SpawnEffect(CEffect* eff)
+{
+	effects.push_back(eff);
 }
