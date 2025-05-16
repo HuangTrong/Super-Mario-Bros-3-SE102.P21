@@ -3,6 +3,7 @@
 #include "AssetIDs.h"
 #include "Configs.h"
 #include "debug.h"
+#include "HeadUpDisplay.h"
 
 #include "PlayScene.h"
 #include "Utils.h"
@@ -35,7 +36,7 @@
 
 using namespace std;
 
-CPlayScene::CPlayScene(int id, LPCWSTR filePath):
+CPlayScene::CPlayScene(int id, LPCWSTR filePath) :
 	CScene(id, filePath)
 {
 	player = NULL;
@@ -77,7 +78,7 @@ void CPlayScene::_ParseSection_SPRITES(string line)
 	if (tex == NULL)
 	{
 		DebugOut(L"[ERROR] Texture ID %d not found!\n", texID);
-		return; 
+		return;
 	}
 
 	CSprites::GetInstance()->Add(ID, l, t, r, b, tex);
@@ -157,7 +158,7 @@ void CPlayScene::_ParseSection_ANIMATIONS(string line)
 	for (int i = 1; i < tokens.size(); i += 2)	// why i+=2 ?  sprite_id | frame_time  
 	{
 		int sprite_id = atoi(tokens[i].c_str());
-		int frame_time = atoi(tokens[i+1].c_str());
+		int frame_time = atoi(tokens[i + 1].c_str());
 		ani->Add(sprite_id, frame_time);
 	}
 
@@ -165,7 +166,7 @@ void CPlayScene::_ParseSection_ANIMATIONS(string line)
 }
 
 /*
-	Parse a line in section [OBJECTS] 
+	Parse a line in section [OBJECTS]
 */
 void CPlayScene::_ParseSection_OBJECTS(string line)
 {
@@ -178,18 +179,18 @@ void CPlayScene::_ParseSection_OBJECTS(string line)
 	float x = (float)atof(tokens[1].c_str());
 	float y = (float)atof(tokens[2].c_str());
 
-	CGameObject *obj = NULL;
+	CGameObject* obj = NULL;
 
 	switch (object_type)
 	{
 	case OBJECT_TYPE_MARIO:
-		if (player!=NULL) 
+		if (player != NULL)
 		{
 			DebugOut(L"[ERROR] MARIO object was created before!\n");
 			return;
 		}
-		obj = new CMario(x,y); 
-		player = (CMario*)obj;  
+		obj = new CMario(x, y);
+		player = (CMario*)obj;
 
 		DebugOut(L"[INFO] Player object has been created!\n");
 		break;
@@ -299,7 +300,7 @@ void CPlayScene::_ParseSection_OBJECTS(string line)
 		}
 		else
 			obj = new CPipe(x, y, dir, length, map, gateType);
-				
+
 		break;
 	}
 
@@ -419,7 +420,7 @@ void CPlayScene::Load()
 	f.open(sceneFilePath);
 
 	// current resource section flag
-	int section = SCENE_SECTION_UNKNOWN;					
+	int section = SCENE_SECTION_UNKNOWN;
 
 	char str[MAX_SCENE_LINE];
 	while (f.getline(str, MAX_SCENE_LINE))
@@ -438,7 +439,7 @@ void CPlayScene::Load()
 		// data section
 		//
 		switch (section)
-		{ 
+		{
 		case SCENE_SECTION_ASSETS: _ParseSection_ASSETS(line); break;
 		case SCENE_SECTION_OBJECTS: _ParseSection_OBJECTS(line); break;
 		case SCENE_SECTION_BACKGROUND: _ParseSection_BACKGROUND(line); break;
@@ -550,6 +551,7 @@ void CPlayScene::Update(DWORD dt)
 
 	AdjustCamPos();
 	// HUD:?
+	HUD::GetInstance()->Update();
 
 	PurgeDeletedObjects();
 
@@ -622,6 +624,7 @@ void CPlayScene::Render()
 		objects[i]->Render();
 	for (int i = 0; i < effects.size(); i++)
 		effects[i]->Render();
+	HUD::GetInstance()->Render();
 
 }
 
@@ -687,7 +690,7 @@ void CPlayScene::UnPause() {
 /*
 	Unload scene
 
-	TODO: Beside objects, we need to clean up sprites, animations and textures as well 
+	TODO: Beside objects, we need to clean up sprites, animations and textures as well
 
 */
 void CPlayScene::Unload()
