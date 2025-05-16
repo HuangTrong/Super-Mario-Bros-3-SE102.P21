@@ -5,6 +5,7 @@
 
 
 void CData::ResetData() {
+	world = WORLD_DEFAULT;
 	life = LIFE_DEFAULT;
 	score = SCORE_DEFAULT;
 	coin = COIN_DEFAULT;
