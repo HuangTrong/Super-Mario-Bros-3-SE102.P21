@@ -3,7 +3,7 @@
 #include <vector>
 using namespace std;
 
-#define SCENE_DEFAULT	1
+#define WORLD_DEFAULT	1
 #define LIFE_DEFAULT	4
 #define SCORE_DEFAULT	0
 #define COIN_DEFAULT	0
@@ -21,7 +21,7 @@ using namespace std;
 class CData
 {
 	// HUD data
-
+	UINT world;
 	UINT life;
 	UINT score;
 	UINT coin;
@@ -34,14 +34,13 @@ class CData
 	int current_map;
 	int pass_map;
 
-	
-
 public:
 	CData() {
 		ResetData();
 	}
 
 	//getter
+	UINT GetWorld() { return world; }
 	UINT GetLife() { return life; }
 	UINT GetScore() { return score; }
 	UINT GetCoin() { return coin; }
@@ -54,6 +53,7 @@ public:
 	int GetPassedMap() { return pass_map; }
 
 	//setter
+	void SetWorld(UINT world) { this->world = world; }
 	void SetLife(UINT life) { this->life = life; }
 	void SetScore(UINT score) { this->score = score; }
 	void SetCoin(UINT coin) { this->coin = coin; }
@@ -62,7 +62,7 @@ public:
 
 	void SetPlayerLevel(int player_level) { this->player_level = player_level; }
 	void SetCurrentMap(int current_map) { this->current_map = current_map; }
-	
+
 	//add
 	void AddCoin(int coin) { this->coin += coin; }
 	void AddLife(int life) { this->life += life; }
@@ -80,6 +80,7 @@ public:
 	void PassCurrentMap() {
 		pass_map = current_map;
 	}
+
 	//reset
 	void ResetData();
 
