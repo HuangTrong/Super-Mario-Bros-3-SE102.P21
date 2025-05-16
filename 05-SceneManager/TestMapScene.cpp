@@ -9,6 +9,7 @@
 #include "AssetLoader.h"
 #include "Utils.h"
 #include "DataBase.h"
+#include "HeadUpDisplay.h"
 
 
 #define WSCENE_SECTION_UNKNOWN -1
@@ -204,6 +205,7 @@ void TestMapScene::Update(DWORD dt) {
 	player->Update(dt);
 	for (auto& portal : portals)
 		portal.second->Update(dt);
+	HUD::GetInstance()->Update();
 }
 void TestMapScene::Render() {
 	//render bg
@@ -213,6 +215,8 @@ void TestMapScene::Render() {
 	//render portals
 	for (auto& portal : portals)
 		portal.second->Render();
+
+	HUD::GetInstance()->Render();
 
 	player->Render();
 }
