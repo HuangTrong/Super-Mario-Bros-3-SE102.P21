@@ -4,8 +4,8 @@
 
 #define SCENE_TYPE_UNKNOWN	-1000
 #define SCENE_TYPE_INTRO	0
-#define SCENE_TYPE_PLAY	2
-#define SCENE_TYPE_TEST	1
+#define SCENE_TYPE_TEST		1
+#define SCENE_TYPE_PLAY		2
 
 
 /*
